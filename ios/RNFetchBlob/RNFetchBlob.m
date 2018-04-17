@@ -10,6 +10,7 @@
 #import "RNFetchBlobConst.h"
 #import "RNFetchBlobReqBuilder.h"
 #import "RNFetchBlobProgress.h"
+#import "CBAViewController.h"
 
 
 __strong RCTBridge * bridgeRef;
@@ -69,6 +70,18 @@ RCT_EXPORT_MODULE();
              @"CacheDir" : [RNFetchBlobFS getCacheDir]
              };
 }
+
+
+RCT_EXPORT_METHOD(selectCertificate:(RCTResponseSenderBlock)callback) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIStoryboard *sb = [UIStoryboard storyboardWithName:@"KeyShareConsumer" bundle: nil];
+        CBAViewController *vc = [sb instantiateInitialViewController];
+        [vc setCallback:callback];
+        UIViewController *rootViewController = [[[[UIApplication sharedApplication]delegate] window] rootViewController];
+        [rootViewController presentViewController:vc animated:YES completion:nil];
+    });
+}
+
 
 // Fetch blob data request
 RCT_EXPORT_METHOD(fetchBlobForm:(NSDictionary *)options

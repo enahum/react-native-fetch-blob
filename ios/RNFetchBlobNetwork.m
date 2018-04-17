@@ -100,7 +100,7 @@ NSOperationQueue *taskQueue;
 @synthesize fileTaskCompletionHandler;
 @synthesize dataTaskCompletionHandler;
 @synthesize error;
-
+@synthesize keyChain;
 
 // constructor
 - (id)init {
@@ -109,6 +109,7 @@ NSOperationQueue *taskQueue;
         taskQueue = [[NSOperationQueue alloc] init];
         taskQueue.maxConcurrentOperationCount = 10;
     }
+    keyChain = [[KeyChainDataSource alloc] initWithMode:KSM_Identities];
     return self;
 }
 
@@ -580,16 +581,37 @@ NSOperationQueue *taskQueue;
 }
 
 
-- (void) URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential * _Nullable credantial))completionHandler
+- (void) URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential * _Nullable credential))completionHandler
 {
-    BOOL trusty = [options valueForKey:CONFIG_TRUSTY];
-    if(!trusty)
-    {
-        completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
-    }
-    else
-    {
+    if ([challenge.protectionSpace.authenticationMethod isEqualToString:NSURLAuthenticationMethodClientCertificate]) {
+        NSString *certificateName = [options valueForKey:@"certificate"];
+        if (![certificateName isKindOfClass:[NSNull class]]) {
+            SecIdentityRef identity = [keyChain GetIdentityByName:certificateName];
+            if (identity != nil) {
+                SecCertificateRef certificate = NULL;
+                OSStatus status = SecIdentityCopyCertificate(identity, &certificate);
+                if (!status) {
+                    const void *certs[] = {certificate};
+                    CFArrayRef certArray = CFArrayCreate(kCFAllocatorDefault, certs, 1, NULL);
+                    NSURLCredential *credential = [NSURLCredential credentialWithIdentity:identity certificates:(__bridge NSArray*)certArray persistence:NSURLCredentialPersistencePermanent];
+                    [challenge.sender useCredential:credential forAuthenticationChallenge:challenge];
+                    completionHandler(NSURLSessionAuthChallengeUseCredential,credential);
+                    return;
+                }
+            }
+        }
         completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
+        
+    } else {
+        BOOL trusty = [options valueForKey:CONFIG_TRUSTY];
+        if(!trusty)
+        {
+            completionHandler(NSURLSessionAuthChallengePerformDefaultHandling, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
+        }
+        else
+        {
+            completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
+        }
     }
 }
 
@@ -612,6 +634,32 @@ NSOperationQueue *taskQueue;
     {
         completionHandler(nil);
     }
+}
+
+- (OSStatus)extractIdentity:(CFDataRef)inP12Data :(SecIdentityRef*)identity {
+    OSStatus securityError = errSecSuccess;
+    
+    CFStringRef password = CFSTR("lisaers");
+    const void *keys[] = { kSecImportExportPassphrase };
+    const void *values[] = { password };
+    
+    CFDictionaryRef options = CFDictionaryCreate(NULL, keys, values, 1, NULL, NULL);
+    
+    CFArrayRef items = CFArrayCreate(NULL, 0, 0, NULL);
+    securityError = SecPKCS12Import(inP12Data, options, &items);
+    
+    if (securityError == 0) {
+        CFDictionaryRef ident = CFArrayGetValueAtIndex(items,0);
+        const void *tempIdentity = NULL;
+        tempIdentity = CFDictionaryGetValue(ident, kSecImportItemIdentity);
+        *identity = (SecIdentityRef)tempIdentity;
+    }
+    
+    if (options) {
+        CFRelease(options);
+    }
+    
+    return securityError;
 }
 
 @end

@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "RNFetchBlobProgress.h"
 #import "RNFetchBlobFS.h"
+#import "KeyChainDataSource.h"
 
 #if __has_include(<React/RCTAssert.h>)
 #import <React/RCTBridgeModule.h>
@@ -38,6 +39,7 @@ typedef void(^DataTaskCompletionHander) (NSData * _Nullable resp, NSURLResponse 
 @property (strong, nonatomic) CompletionHander fileTaskCompletionHandler;
 @property (strong, nonatomic) DataTaskCompletionHander dataTaskCompletionHandler;
 @property (nullable, nonatomic) NSError * error;
+@property (nonatomic, retain) KeyChainDataSource *keyChain;
 
 
 + (NSMutableDictionary  * _Nullable ) normalizeHeaders:(NSDictionary * _Nullable)headers;
