@@ -2,8 +2,10 @@ package com.RNFetchBlob;
 
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.content.SharedPreferences;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Callback;
@@ -33,6 +35,8 @@ import static android.app.Activity.RESULT_OK;
 import static com.RNFetchBlob.RNFetchBlobConst.GET_CONTENT_INTENT;
 
 public class RNFetchBlob extends ReactContextBaseJavaModule {
+
+    public static final String FETCH_BLOB_PREFERENCES = "FETCH_BLOB_PREFERENCES";
 
     // Cookies
     private final ForwardingCookieHandler mCookieHandler;
@@ -81,7 +85,56 @@ public class RNFetchBlob extends ReactContextBaseJavaModule {
 
     @Override
     public Map<String, Object> getConstants() {
-        return RNFetchBlobFS.getSystemfolders(this.getReactApplicationContext());
+        ReactApplicationContext appContext = this.getReactApplicationContext();
+        Context context = appContext.getApplicationContext();
+        SharedPreferences preferences = context.getApplicationContext().getSharedPreferences(FETCH_BLOB_PREFERENCES, Context.MODE_PRIVATE);
+        Map<String, Object> res = new HashMap<>();
+
+        if (preferences.getString("DocumentDir", null) != null) {
+            return this.getFromCache(preferences);
+        }
+
+
+        res = RNFetchBlobFS.getSystemfolders(appContext);
+        this.saveConstants(res, context);
+        return res;
+    }
+
+    private Map<String, Object> getFromCache(SharedPreferences preferences) {
+        Map<String, Object> res = new HashMap<>();
+
+        res.put("DocumentDir", preferences.getString("DocumentDir", ""));
+        res.put("CacheDir", preferences.getString("CacheDir", ""));
+        res.put("DCIMDir", preferences.getString("DCIMDir", ""));
+        res.put("PictureDir", preferences.getString("PictureDir", ""));
+        res.put("MusicDir", preferences.getString("MusicDir", ""));
+        res.put("DownloadDir", preferences.getString("DownloadDir", ""));
+        res.put("MovieDir", preferences.getString("MovieDir", ""));
+        res.put("RingtoneDir", preferences.getString("RingtoneDir", ""));
+        res.put("SDCardDir", preferences.getString("SDCardDir", ""));
+        res.put("SDCardApplicationDir", preferences.getString("SDCardApplicationDir", ""));
+        res.put("MainBundleDir", preferences.getString("MainBundleDir", ""));
+
+        return res;
+    }
+
+    private void saveConstants(Map<String, Object> res, Context ctx) {
+        SharedPreferences preferences = ctx.getSharedPreferences(FETCH_BLOB_PREFERENCES, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = preferences.edit();
+
+        editor.putString("DocumentDir", res.get("DocumentDir").toString());
+        editor.putString("CacheDir", res.get("CacheDir").toString());
+        editor.putString("DCIMDir", res.get("DCIMDir").toString());
+        editor.putString("PictureDir", res.get("PictureDir").toString());
+        editor.putString("MusicDir", res.get("MusicDir").toString());
+        editor.putString("DownloadDir", res.get("DownloadDir").toString());
+        editor.putString("MovieDir", res.get("MovieDir").toString());
+        editor.putString("RingtoneDir", res.get("RingtoneDir").toString());
+        editor.putString("SDCardDir", res.get("SDCardDir").toString());
+        editor.putString("SDCardApplicationDir", res.get("SDCardApplicationDir").toString());
+        editor.putString("MainBundleDir", res.get("MainBundleDir").toString());
+
+        editor.commit();
     }
 
     @ReactMethod
